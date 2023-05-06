@@ -2638,10 +2638,6 @@ local AutoFarm = Main:Toggle("Auto Farm Level","6022668898",_G.AutoFarm,function
 	StopTween(_G.Auto_Farm_Level)
 end)
 
-local SelectWeapona = Main:Dropdown("Select Weapon",WeaponList,function(value)
-	_G.Select_Weapon = value
-end)
-
 WeaponList = {}
 
 for i,v in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do  
@@ -2649,6 +2645,12 @@ for i,v in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) 
 		table.insert(WeaponList ,v.Name)
 	end
 end
+
+local SelectWeapona = Main:Dropdown("Select Weapon",WeaponList,function(value)
+	_G.Select_Weapon = value
+end)
+
+
 
 Main:Button("Refresh Weapon",function()
 	SelectWeapona:Clear()
