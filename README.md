@@ -2607,6 +2607,32 @@ local Server = win:Tab("Server",[[7044233235]])
 local Shop = win:Tab("Shop",[[6031265976]])
 local Misc = win:Tab("Misc",[[7040347038]])
 
+Misc:Toggle("Auto Set Spawn Points","6022668898",true,function(value)
+	_G.AutoSetSpawn = value
+end)
+
+spawn(function()
+	pcall(function()
+		while wait() do
+			if _G.AutoSetSpawn then
+				if game:GetService("Players").LocalPlayer.Character.Humanoid.Health > 0 then
+					game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("SetSpawnPoint")
+				end
+			end
+		end
+	end)
+end)
+
+Misc:Toggle("Bring Mob","6022668898",true,function(value)
+	_G.Brimob = value
+end)
+
+_G.Select_Distance = 35
+Misc:Slider("SelectDistance",1,100,1,function(value)
+	_G.Select_Distance = value
+end)
+
+
 local AutoFarm = Main:Toggle("Auto Farm Level","6022668898",_G.AutoFarm,function(value)
 	_G.Auto_Farm_Level = value
 	StopTween(_G.Auto_Farm_Level)
@@ -2616,6 +2642,14 @@ local SelectWeapona = Main:Dropdown("Select Weapon",WeaponList,function(value)
 	_G.Select_Weapon = value
 end)
 
+WeaponList = {}
+
+for i,v in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do  
+	if v:IsA("Tool") then
+		table.insert(WeaponList ,v.Name)
+	end
+end
+
 Main:Button("Refresh Weapon",function()
 	SelectWeapona:Clear()
 	for i,v in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do  
@@ -2623,6 +2657,194 @@ Main:Button("Refresh Weapon",function()
 	end
 end)
 
+local SeraphFrame = debug.getupvalues(require(game:GetService("Players").LocalPlayer.PlayerScripts:WaitForChild("CombatFramework")))[2]
+local VirtualUser = game:GetService('VirtualUser')
+local RigControllerR = debug.getupvalues(require(game:GetService("Players").LocalPlayer.PlayerScripts.CombatFramework.RigController))[2]
+local Client = game:GetService("Players").LocalPlayer
+local DMG = require(Client.PlayerScripts.CombatFramework.Particle.Damage)
+
+function SeraphFuckWeapon() 
+	local p13 = SeraphFrame.activeController
+	local wea = p13.blades[1]
+	if not wea then return end
+	while wea.Parent~=game.Players.LocalPlayer.Character do wea=wea.Parent end
+	return wea
+end
+
+function getHits(Size)
+	local Hits = {}
+	local Enemies = workspace.Enemies:GetChildren()
+	local Characters = workspace.Characters:GetChildren()
+	for i=1,#Enemies do local v = Enemies[i]
+		local Human = v:FindFirstChildOfClass("Humanoid")
+		if Human and Human.RootPart and Human.Health > 0 and game.Players.LocalPlayer:DistanceFromCharacter(Human.RootPart.Position) < Size+55 then
+			table.insert(Hits,Human.RootPart)
+		end
+	end
+	for i=1,#Characters do local v = Characters[i]
+		if v ~= game.Players.LocalPlayer.Character then
+			local Human = v:FindFirstChildOfClass("Humanoid")
+			if Human and Human.RootPart and Human.Health > 0 and game.Players.LocalPlayer:DistanceFromCharacter(Human.RootPart.Position) < Size+55 then
+				table.insert(Hits,Human.RootPart)
+			end
+		end
+	end
+	return Hits
+end
+
+task.spawn(
+	function()
+		while wait(0) do
+			if  _G.FastAttack then
+				if SeraphFrame.activeController then
+					--if v.Humanoid.Health > 0 then
+					SeraphFrame.activeController.attacking = false
+					SeraphFrame.activeController.timeToNextBlock = 0
+					SeraphFrame.activeController.humanoid.AutoRotate = true
+					SeraphFrame.activeController.increment = 3
+					SeraphFrame.activeController.blocking = false
+					SeraphFrame.activeController.hitboxMagnitude = 150
+					SeraphFrame.activeController.timeToNextAttack = 0
+					SeraphFrame.activeController.focusStart = 0
+					SeraphFrame.activeController.humanoid.AutoRotate = true
+					SeraphFrame.activeController.increment = 1 + 1 / 1
+				end
+			end
+		end
+	end)
+
+function Boost()
+	spawn(function()
+		game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange",tostring(SeraphFuckWeapon()))
+	end)
+end
+
+function Unboost()
+	spawn(function()
+		game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("unequipWeapon",tostring(SeraphFuckWeapon()))
+	end)
+end
+
+local cdnormal = 8.0
+local Animation = Instance.new("Animation")
+local CooldownFastAttack = 0
+Attack = function()
+	local ac = SeraphFrame.activeController
+	if ac and ac.equipped then
+		task.spawn(
+			function()
+				if tick() - cdnormal > 9.0 then
+					ac:attack()
+					cdnormal = tick()
+				else
+					Animation.AnimationId = ac.anims.basic[2]
+					ac.humanoid:LoadAnimation(Animation):Play(100, 99) --à¸—à¹ˆà¸²à¹„à¸¡à¹ˆà¸—à¸³à¸‡à¸²à¸™à¹à¸à¹‰à¹€à¸›à¹‡à¸™ (1,1)
+					game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", getHits(120), 2, "")
+				end
+			end)
+	end
+end
+
+b = tick()
+spawn(function()
+	while wait(0) do
+		if  _G.FastAttack then
+			if b - tick() > 0.75 then
+				wait(.2)
+				b = tick()
+			end
+			pcall(function()
+				for i, v in pairs(game.Workspace.Enemies:GetChildren()) do
+					if v.Humanoid.Health > 0 then
+						if (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 40 then
+							Attack()
+							wait(0)
+							Boost()
+						end
+					end
+				end
+			end)
+		end
+	end
+end)
+
+k = tick()
+spawn(function()
+	while wait(0) do
+		if  _G.FastAttack then
+			if k - tick() > 0.75 then
+				wait(0)
+				k = tick()
+			end
+			pcall(function()
+				for i, v in pairs(game.Workspace.Enemies:GetChildren()) do
+					if v.Humanoid.Health > 0 then
+						if (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 40 then
+							wait(0)
+							Unboost()
+						end
+					end
+				end
+			end)
+		end
+	end
+end)
+
+tjw1 = true
+task.spawn(
+	function()
+		local a = game.Players.LocalPlayer
+		local b = require(a.PlayerScripts.CombatFramework.Particle)
+		local c = require(game:GetService("ReplicatedStorage").CombatFramework.RigLib)
+		if not shared.orl then
+			shared.orl = c.wrapAttackAnimationAsync
+		end
+		if not shared.cpc then
+			shared.cpc = b.play
+		end
+		if tjw1 then
+			pcall(
+				function()
+					c.wrapAttackAnimationAsync = function(d, e, f, g, h)
+						local i = c.getBladeHits(e, f, g)
+						if i then
+							b.play = function()
+							end
+							d:Play(0, 0, 0)
+							h(i)
+							b.play = shared.cpc
+							wait(0)
+							d:Stop()
+						end
+					end
+				end
+			)
+		end
+	end
+)
+
+require(game.ReplicatedStorage.Util.CameraShaker):Stop();
+CombatFrameworkR = require(game:GetService("Players").LocalPlayer.PlayerScripts.CombatFramework);
+y = debug.getupvalues(CombatFrameworkR)[2];
+spawn(function()
+	game:GetService("RunService").RenderStepped:Connect(function()
+		if _G.FastAttack then
+			if (typeof(y) == "table") then
+				pcall(function()
+					y.activeController.timeToNextAttack = -(math.huge ^ (math.huge ^ math.huge));
+					y.activeController.hitboxMagnitude = 60;
+					y.activeController.active = false;
+					y.activeController.timeToNextBlock = 0;
+					y.activeController.focusStart = 1655503339.0980349;
+					y.activeController.increment = 0;
+					y.activeController.blocking = false;
+					y.activeController.attacking = false;
+					y.activeController.humanoid.AutoRotate = true;
+				end);
+			end
+		end
+	end);
+end);
 
 ---bring
 spawn(function()
@@ -4266,228 +4488,6 @@ Misc:Button("Hop To Lower Player",function()
 end)
 
 
-Misc:Toggle("Auto Set Spawn Points","6022668898",true,function(value)
-	_G.AutoSetSpawn = value
-end)
-
-spawn(function()
-	pcall(function()
-		while wait() do
-			if _G.AutoSetSpawn then
-				if game:GetService("Players").LocalPlayer.Character.Humanoid.Health > 0 then
-					game:GetService("ReplicatedStorage").Remotes.CommF_:InvokeServer("SetSpawnPoint")
-				end
-			end
-		end
-	end)
-end)
-
-Misc:Toggle("Bring Mob","6022668898",true,function(value)
-	_G.Brimob = value
-end)
-
-_G.Select_Distance = 35
-Misc:Slider("SelectDistance",1,100,1,function(value)
-	_G.Select_Distance = value
-end)
-
-local SeraphFrame = debug.getupvalues(require(game:GetService("Players").LocalPlayer.PlayerScripts:WaitForChild("CombatFramework")))[2]
-local VirtualUser = game:GetService('VirtualUser')
-local RigControllerR = debug.getupvalues(require(game:GetService("Players").LocalPlayer.PlayerScripts.CombatFramework.RigController))[2]
-local Client = game:GetService("Players").LocalPlayer
-local DMG = require(Client.PlayerScripts.CombatFramework.Particle.Damage)
-
-function SeraphFuckWeapon() 
-	local p13 = SeraphFrame.activeController
-	local wea = p13.blades[1]
-	if not wea then return end
-	while wea.Parent~=game.Players.LocalPlayer.Character do wea=wea.Parent end
-	return wea
-end
-
-function getHits(Size)
-	local Hits = {}
-	local Enemies = workspace.Enemies:GetChildren()
-	local Characters = workspace.Characters:GetChildren()
-	for i=1,#Enemies do local v = Enemies[i]
-		local Human = v:FindFirstChildOfClass("Humanoid")
-		if Human and Human.RootPart and Human.Health > 0 and game.Players.LocalPlayer:DistanceFromCharacter(Human.RootPart.Position) < Size+55 then
-			table.insert(Hits,Human.RootPart)
-		end
-	end
-	for i=1,#Characters do local v = Characters[i]
-		if v ~= game.Players.LocalPlayer.Character then
-			local Human = v:FindFirstChildOfClass("Humanoid")
-			if Human and Human.RootPart and Human.Health > 0 and game.Players.LocalPlayer:DistanceFromCharacter(Human.RootPart.Position) < Size+55 then
-				table.insert(Hits,Human.RootPart)
-			end
-		end
-	end
-	return Hits
-end
-
-task.spawn(
-	function()
-		while wait(0) do
-			if  _G.FastAttack then
-				if SeraphFrame.activeController then
-					--if v.Humanoid.Health > 0 then
-					SeraphFrame.activeController.attacking = false
-					SeraphFrame.activeController.timeToNextBlock = 0
-					SeraphFrame.activeController.humanoid.AutoRotate = true
-					SeraphFrame.activeController.increment = 3
-					SeraphFrame.activeController.blocking = false
-					SeraphFrame.activeController.hitboxMagnitude = 150
-					SeraphFrame.activeController.timeToNextAttack = 0
-					SeraphFrame.activeController.focusStart = 0
-					SeraphFrame.activeController.humanoid.AutoRotate = true
-					SeraphFrame.activeController.increment = 1 + 1 / 1
-				end
-			end
-		end
-	end)
-
-function Boost()
-	spawn(function()
-		game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("weaponChange",tostring(SeraphFuckWeapon()))
-	end)
-end
-
-function Unboost()
-	spawn(function()
-		game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("unequipWeapon",tostring(SeraphFuckWeapon()))
-	end)
-end
-
-local cdnormal = 8.0
-local Animation = Instance.new("Animation")
-local CooldownFastAttack = 0
-Attack = function()
-	local ac = SeraphFrame.activeController
-	if ac and ac.equipped then
-		task.spawn(
-			function()
-				if tick() - cdnormal > 9.0 then
-					ac:attack()
-					cdnormal = tick()
-				else
-					Animation.AnimationId = ac.anims.basic[2]
-					ac.humanoid:LoadAnimation(Animation):Play(100, 99) --à¸—à¹ˆà¸²à¹„à¸¡à¹ˆà¸—à¸³à¸‡à¸²à¸™à¹à¸à¹‰à¹€à¸›à¹‡à¸™ (1,1)
-					game:GetService("ReplicatedStorage").RigControllerEvent:FireServer("hit", getHits(120), 2, "")
-				end
-			end)
-	end
-end
-
-b = tick()
-spawn(function()
-	while wait(0) do
-		if  _G.FastAttack then
-			if b - tick() > 0.75 then
-				wait(.2)
-				b = tick()
-			end
-			pcall(function()
-				for i, v in pairs(game.Workspace.Enemies:GetChildren()) do
-					if v.Humanoid.Health > 0 then
-						if (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 40 then
-							Attack()
-							wait(0)
-							Boost()
-						end
-					end
-				end
-			end)
-		end
-	end
-end)
-
-k = tick()
-spawn(function()
-	while wait(0) do
-		if  _G.FastAttack then
-			if k - tick() > 0.75 then
-				wait(0)
-				k = tick()
-			end
-			pcall(function()
-				for i, v in pairs(game.Workspace.Enemies:GetChildren()) do
-					if v.Humanoid.Health > 0 then
-						if (v.HumanoidRootPart.Position - game.Players.LocalPlayer.Character.HumanoidRootPart.Position).Magnitude <= 40 then
-							wait(0)
-							Unboost()
-						end
-					end
-				end
-			end)
-		end
-	end
-end)
-
-tjw1 = true
-task.spawn(
-	function()
-		local a = game.Players.LocalPlayer
-		local b = require(a.PlayerScripts.CombatFramework.Particle)
-		local c = require(game:GetService("ReplicatedStorage").CombatFramework.RigLib)
-		if not shared.orl then
-			shared.orl = c.wrapAttackAnimationAsync
-		end
-		if not shared.cpc then
-			shared.cpc = b.play
-		end
-		if tjw1 then
-			pcall(
-				function()
-					c.wrapAttackAnimationAsync = function(d, e, f, g, h)
-						local i = c.getBladeHits(e, f, g)
-						if i then
-							b.play = function()
-							end
-							d:Play(0, 0, 0)
-							h(i)
-							b.play = shared.cpc
-							wait(0)
-							d:Stop()
-						end
-					end
-				end
-			)
-		end
-	end
-)
-
-require(game.ReplicatedStorage.Util.CameraShaker):Stop();
-CombatFrameworkR = require(game:GetService("Players").LocalPlayer.PlayerScripts.CombatFramework);
-y = debug.getupvalues(CombatFrameworkR)[2];
-spawn(function()
-	game:GetService("RunService").RenderStepped:Connect(function()
-		if _G.FastAttack then
-			if (typeof(y) == "table") then
-				pcall(function()
-					y.activeController.timeToNextAttack = -(math.huge ^ (math.huge ^ math.huge));
-					y.activeController.hitboxMagnitude = 60;
-					y.activeController.active = false;
-					y.activeController.timeToNextBlock = 0;
-					y.activeController.focusStart = 1655503339.0980349;
-					y.activeController.increment = 0;
-					y.activeController.blocking = false;
-					y.activeController.attacking = false;
-					y.activeController.humanoid.AutoRotate = true;
-				end);
-			end
-		end
-	end);
-end);
-
-
-WeaponList = {}
-
-for i,v in pairs(game:GetService("Players").LocalPlayer.Backpack:GetChildren()) do  
-	if v:IsA("Tool") then
-		table.insert(WeaponList ,v.Name)
-	end
-end
 --------------------------------------------------------------------
 pcall(function()
 	game:GetService("RunService").Heartbeat:Connect(function()
